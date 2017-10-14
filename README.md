@@ -1,10 +1,8 @@
+<h5><a href="http://bensoft.de/projects/smartmirror">Visit my webpage! (images etc.)</a></h5>
 <h1>SmartMirror</h1>
 						<h2>Description</h2>
 						<p>
 							SmartMirror is a DIY project. Basically it is an LED-Matrix of 64x16 placed behind a translucent mirror. It is powered by a NodeMCU chip, so it has WiFi capabilities. It can show the time in some special decimal form (where the day has 10 hours, a hour 100 minutes and a minute 100 seconds). A DHT11 temperature and humidity sensor provides ambient values. Through implementation of a simple HTTP server, the mirror can react to GET requests. It gathers the current time via NTP (thus it needs to be connected to the Internet).
-						</p>
-						<p>
-							You can find the code on my <a href="https://github.com/bensoftde/smartmirror">Github repository &quot;smartmirror&quot;</a>.
 						</p>
 						<h2>Images - coming soon!</h2>
 						<h2>GET request modes</h2>
