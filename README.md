@@ -4,7 +4,15 @@
 						<p>
 							SmartMirror is a DIY project. Basically it is an LED-Matrix of 64x16 placed behind a translucent mirror. It is powered by a NodeMCU chip, so it has WiFi capabilities. It can show the time in some special decimal form (where the day has 10 hours, a hour 100 minutes and a minute 100 seconds). A DHT11 temperature and humidity sensor provides ambient values. Through implementation of a simple HTTP server, the mirror can react to GET requests. It gathers the current time via NTP (thus it needs to be connected to the Internet).
 						</p>
-						<h2>Images - coming soon!</h2>
+						<p>
+							Required libraries:<br>
+							<ul>
+								<li><a href="https://github.com/Seeed-Studio/Ultrathin_LED_Matrix">Ultrathin_LED_Matrix by Seeed-Studio</a></li>
+								<li><a href="https://github.com/RobTillaart/Arduino/tree/master/libraries/DHTlib">DHTLib by RobTillaart</a></li>
+								<li><a href="https://github.com/PaulStoffregen/Time">Time by PaulStoffregen</a></li>
+								<li><a href="https://github.com/JChristensen/Timezone">Timezone by JChristensen</a></li>
+							</ul>
+						</p>
 						<h2>GET request modes</h2>
 						<p>
 							<table class="bordered">
