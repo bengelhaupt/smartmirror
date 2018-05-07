@@ -242,7 +242,7 @@ void drawTime(uint8_t hour, uint8_t minute) {
   matrix.clear();
 
   drawSymbol(6, 0, hour / 10);
-  drawSymbol(14, 0, hour & 10);
+  drawSymbol(14, 0, hour % 10);
 
   matrix.drawPoint(23, 5, 1);
   matrix.drawPoint(23, 11, 1);
