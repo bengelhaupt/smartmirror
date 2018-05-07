@@ -2,13 +2,13 @@
 <h1>SmartMirror</h1>
 						<h2>Description</h2>
 						<p>
-							SmartMirror is a DIY project. Basically it is an LED-Matrix of 64x16 placed behind a translucent mirror. It is powered by a NodeMCU chip, so it has WiFi capabilities. It can show the time in some special decimal form (where the day has 10 hours, a hour 100 minutes and a minute 100 seconds). A DHT11 temperature and humidity sensor provides ambient values. Through implementation of a simple HTTP server, the mirror can react to GET requests. It gathers the current time via NTP (thus it needs to be connected to the Internet).
+							SmartMirror is a DIY project. Basically it is an LED-Matrix of 64x16 placed behind a translucent mirror. It is powered by a NodeMCU chip, so it has WiFi capabilities. It can show the time in some special decimal form (where the day has 10 hours, a hour 100 minutes and a minute 100 seconds) but a normal 24-hour format is also possible. A DHT11 temperature and humidity sensor provides ambient values. Through implementation of a simple HTTP server, the mirror can react to GET requests. It gathers the current time via NTP (thus it needs to be connected to the Internet).
 						</p>
 						<p>
 							Required libraries:<br>
 							<ul>
 								<li><a href="https://github.com/Seeed-Studio/Ultrathin_LED_Matrix">Ultrathin_LED_Matrix by Seeed-Studio</a></li>
-								<li><a href="https://github.com/RobTillaart/Arduino/tree/master/libraries/DHTlib">DHTLib by RobTillaart</a></li>
+								<li><a href="https://github.com/RobTillaart/Arduino/tree/master/libraries/DHTNEW">DHTNEW by RobTillaart</a></li>
 								<li><a href="https://github.com/PaulStoffregen/Time">Time by PaulStoffregen</a></li>
 								<li><a href="https://github.com/JChristensen/Timezone">Timezone by JChristensen</a></li>
 							</ul>
@@ -16,7 +16,8 @@
 						<h2>GET request modes</h2>
 						<p>
 							<table class="bordered">
-								<tr><td>/clock</td><td>Shows the clock.</td></tr>
+								<tr><td>/clock10</td><td>Shows the clock in decimal mode.</td></tr>
+								<tr><td>/clock24</td><td>Shows the clock in 24-hour format.</td></tr>
 								<tr><td>/temperature</td><td>Returns the temperature.</td></tr>
 								<tr><td>/humidity</td><td>Returns the humidity.</td></tr>
 								<tr><td>/disable</td><td>Shuts off the display (but continues to respond to requests).</td></tr>
