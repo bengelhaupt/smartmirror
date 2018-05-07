@@ -1,63 +1,46 @@
 /*
- * SmartMirror
- * 
- * A decimal clock on a 64x16 LED Matrix and a DHT11 temperature and humidity sensor.
- * Applicable for ESP8266 boards (like NodeMCU). The current time is gathered via NTP.
- * 
- * A project by Ben-Noah Engelhaupt (code@bensoft.de) Github: bensoftde
- * Published under GNU General Public License v3.0
- * 
- */
- 
-#include "LEDMatrix.h"
-#include "Time.h"
-#include "Timezone.h"
-#include "dht.h"
+   SmartMirror
 
+   A decimal clock on a 64x16 LED Matrix and a DHT11 temperature and humidity sensor.
+   Applicable for ESP8266 boards (like NodeMCU). The current time is gathered via NTP.
+
+   A project by Ben-Noah Engelhaupt (code@bensoft.de) Github: bensoftde
+   Published under GNU General Public License v3.0
+
+   http://bensoft.de/projects/smartmirror
+
+*/
+
+#include <LEDMatrix.h>
+#include <Time.h>
+#include <Timezone.h>
+#include <dhtnew.h>
 #include <ESP8266WiFi.h>
 #include <WiFiUdp.h>
 #include <ESP8266WebServer.h>
-#include <ESP8266mDNS.h>
 
 ///////SETUP
 
 //WiFi and NTP sync
-char ssid[] = "YOUR_SSID";  //  your network SSID (name)
-char pass[] = "YOUR_PASS";       // your network password
+char ssid[] = "YOUR_SSID";       //  your network SSID (name)
+char pass[] = "YOUR_PASSWORD";   // your network password
 
 //NTP server
 const char* ntpServerName = "0.de.pool.ntp.org";
 
-//Ambients sensor
-dht DHT;
-#define DHT11_PIN 3
+//DHT ambients sensor at pin 3
+DHTNEW dht(3);
 
 //Matrix size
 #define WIDTH   64
 #define HEIGHT  16
 
-// LEDMatrix(a, b, c, d, oe, r1, lat, clk);
+//LEDMatrix(a, b, c, d, oe, r1, lat, clk);
 LEDMatrix matrix(12, 14, 2, 0, 13, 5, 4, 16);
 
 ///////
 
-boolean enabled = true;
-
-String text = "";
-uint8_t textStyle = 0; //marquee=0|center=1|leftbound=2|rightbound=3
-int marqueeSpeed = 1000;
-boolean marqueeDirection = false; //right=true|left=false
-
-ESP8266WebServer server(80);
-MDNSResponder mdns;
-
-unsigned int localPort = 2390;      // local port to listen for UDP packets
-IPAddress timeServerIP;
-const int NTP_PACKET_SIZE = 48;
-byte packetBuffer[ NTP_PACKET_SIZE];
-WiFiUDP udp;
-
-// Display Buffer 128 = 64 * 16 / 8
+//Display Buffer 128 = 64 * 16 / 8
 uint8_t displaybuf[WIDTH * HEIGHT] = {
   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -77,7 +60,7 @@ uint8_t displaybuf[WIDTH * HEIGHT] = {
   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
 };
 
-// dot font
+//Dot font
 const uint8_t symbols[] = {
   0x38, 0x44, 0x82, 0x82, 0x82, 0x82, 0x82, 0x82, 0x82, 0x82, 0x82, 0x82, 0x82, 0x82, 0x44, 0x38, // 0
   0x02, 0x06, 0x0A, 0x12, 0x22, 0x42, 0x82, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, // 1
@@ -200,30 +183,40 @@ const uint8_t symbols[] = {
   /* BLK(127)*/ 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
 };
 
-// (x, y) top-left position
-void drawSymbol(uint16_t x, uint16_t y, uint8_t n)
-{
-  if (x % 8 != 0) {
+boolean enabled = true;
+boolean decimalClock = true; //whether to show the decimal clock at start
+String text = "";
+uint8_t textStyle = 0; //marquee=0|center=1|leftbound=2|rightbound=3
+int marqueeSpeed = 1000;
+boolean marqueeDirection = false; //right=true|left=false
+
+ESP8266WebServer server(80);
+
+WiFiUDP udp;
+unsigned int localPort = 2390;
+IPAddress timeServerIP;
+const int NTP_PACKET_SIZE = 48;
+byte packetBuffer[ NTP_PACKET_SIZE];
+
+//(x, y) top-left position
+void drawSymbol(uint16_t x, uint16_t y, uint8_t n) {
+  if (x % 8 != 0)
     for (uint8_t i = 0; i < HEIGHT; i++) {
       uint8_t shift = x % 8;
       displaybuf[(y + i) * (WIDTH / 8) + (x / 8)] |= symbols[(n * 16) + i] >> shift;
       displaybuf[(y + i) * (WIDTH / 8) + (x / 8) + 1] |= symbols[(n * 16) + i] << (8 - shift);
     }
-  }
   else
-  {
     for (uint8_t i = 0; i < 16; i++) {
       displaybuf[(y + i) * (WIDTH / 8) + (x / 8)] = 0x00;
       displaybuf[(y + i) * (WIDTH / 8) + (x / 8)] = symbols[(n * 16) + i];
     }
-  }
 }
 
 //TIME
-void drawTime(uint8_t hour, uint8_t minute, uint8_t second) {
-  if (hour > 9 || minute > 99 || second > 99) {
+void drawTimeDecimal(uint8_t hour, uint8_t minute, uint8_t second) {
+  if (hour > 9 || minute > 99 || second > 99)
     return;
-  }
 
   matrix.clear();
 
@@ -232,14 +225,30 @@ void drawTime(uint8_t hour, uint8_t minute, uint8_t second) {
   matrix.drawPoint(9, 5, 1);
   matrix.drawPoint(9, 11, 1);
 
-  drawSymbol(11, 0, (minute / 10));
-  drawSymbol(19, 0, (minute % 10));
+  drawSymbol(11, 0, minute / 10);
+  drawSymbol(19, 0, minute % 10);
 
   matrix.drawPoint(27, 5, 1);
   matrix.drawPoint(27, 11, 1);
 
-  drawSymbol(29, 0, (second / 10));
-  drawSymbol(37, 0, (second % 10));
+  drawSymbol(29, 0, second / 10);
+  drawSymbol(37, 0, second % 10);
+}
+
+void drawTime(uint8_t hour, uint8_t minute) {
+  if (hour > 23 || minute > 59)
+    return;
+
+  matrix.clear();
+
+  drawSymbol(6, 0, hour / 10);
+  drawSymbol(14, 0, hour & 10);
+
+  matrix.drawPoint(23, 5, 1);
+  matrix.drawPoint(23, 11, 1);
+
+  drawSymbol(26, 0, minute / 10);
+  drawSymbol(34, 0, minute % 10);
 }
 
 uint16_t startmillisoffset = 0;
@@ -247,34 +256,27 @@ long lastSync = millis();
 long timeSyncInterval = 10000;
 void syncTime() {
   WiFi.hostByName(ntpServerName, timeServerIP);
-
   sendNTPpacket(timeServerIP);
   delay(1000);
 
   int cb = udp.parsePacket();
   if (!cb && WiFi.status() == WL_CONNECTED) {
-    Serial.println("no packet yet");
     timeSyncInterval = 10000;
   }
   else {
-    Serial.print("packet received, length=");
-    Serial.println(cb);
     udp.read(packetBuffer, NTP_PACKET_SIZE);
 
     unsigned long highWord = word(packetBuffer[40], packetBuffer[41]);
     unsigned long lowWord = word(packetBuffer[42], packetBuffer[43]);
     unsigned long secsSince1900 = highWord << 16 | lowWord;
-    Serial.print("Time: ");
     unsigned long epoch = secsSince1900 - 2208988800UL;
-    Serial.println(epoch);
 
     TimeChangeRule myDST = {"CEST", Last, Sun, Mar, 2, 120};    //Daylight time = UTC + 2 hours
-    TimeChangeRule mySTD = {"CET", Last, Sun, Oct, 2, 60};     //Standard time = UTC + 1 hours
+    TimeChangeRule mySTD = {"CET", Last, Sun, Oct, 2, 60};      //Standard time = UTC + 1 hours
     Timezone myTZ(myDST, mySTD);
 
     time_t localTime = myTZ.toLocal(epoch + 2);
 
-    /*Time t = rtc.getTime();*/
     setTime(hour(localTime), minute(localTime), second(localTime), day(localTime), month(localTime), year(localTime));
     startmillisoffset = getMillisPart(millis());
     refresh();
@@ -284,15 +286,12 @@ void syncTime() {
   }
 }
 
-// send an NTP request to the time server at the given address
-unsigned long sendNTPpacket(IPAddress& address)
-{
-  Serial.println("sending NTP packet...");
+unsigned long sendNTPpacket(IPAddress& address) {
   memset(packetBuffer, 0, NTP_PACKET_SIZE);
-  packetBuffer[0] = 0b11100011;
-  packetBuffer[1] = 0;
-  packetBuffer[2] = 6;
-  packetBuffer[3] = 0xEC;
+  packetBuffer[0] = 0b11100011;       // LI, Version, Mode
+  packetBuffer[1] = 0;                // Stratum, or type of clock
+  packetBuffer[2] = 6;                // Polling Interval
+  packetBuffer[3] = 0xEC;             // Peer Clock Precision
   packetBuffer[12]  = 49;
   packetBuffer[13]  = 0x4E;
   packetBuffer[14]  = 49;
@@ -313,15 +312,15 @@ uint8_t lastHumidityValue = 0;
 long lastAmbientRefresh = millis();
 
 void refreshAmbients() {
-  if(DHT.read11(DHT11_PIN) == DHTLIB_OK){
-  lastTemperatureValue = DHT.temperature;
-  lastHumidityValue = DHT.humidity;
+  if (dht.read() == DHTLIB_OK) {
+    lastTemperatureValue = dht.temperature;
+    lastHumidityValue = dht.humidity;
 
-  Serial.println("Ambients refreshed");
+    Serial.println("Ambients refreshed");
 
-  lastAmbientRefresh = millis();
+    lastAmbientRefresh = millis();
   }
-  else{
+  else {
     refreshAmbients();
   }
 }
@@ -348,9 +347,9 @@ void drawText() {
     case 0:
       if (millis() - lastMarquee > marqueeSpeed) {
         matrix.clear();
-        for (int i = 0; i < 8; i++) {
+        for (int i = 0; i < 8; i++)
           drawSymbol(8 * i, 0, text[i] - 10);
-        }
+
         if (marqueeDirection)
           text = text[len - 1] + text.substring(0, text.length() - 1);
         else
@@ -389,14 +388,20 @@ long lastMatrixRefresh = millis();
 void refresh() {
   int16_t offsetmillis = getMillisPart(millis()) - startmillisoffset;
   time_t n = now();
-  long daymillis = 3600000.0 * hour(n) + 60000.0 * minute(n) + 1000.0 * second(n) + offsetmillis;
-  if (offsetmillis < 0)
-    daymillis += 1000;
-  double t = daymillis / 8640000.0;
-  uint8_t h = t;
-  uint8_t m = 100.0 * (t - h);
-  uint8_t s = 100.0 * ((t - h) * 100.0 - m);
-  drawTime(h, m, s);
+
+  if (decimalClock) {
+    long daymillis = 3600000.0 * hour(n) + 60000.0 * minute(n) + 1000.0 * second(n) + offsetmillis;
+    if (offsetmillis < 0)
+      daymillis += 1000;
+    double t = daymillis / 8640000.0;
+    uint8_t h = t;
+    uint8_t m = 100.0 * (t - h);
+    uint8_t s = 100.0 * ((t - h) * 100.0 - m);
+    drawTimeDecimal(h, m, s);
+  }
+  else {
+    drawTime(hour(n), minute(n));
+  }
 
   drawAmbients();
   lastMatrixRefresh = millis();
@@ -406,14 +411,16 @@ void refresh() {
 long lastWiFiCheck = millis();
 uint8_t loadingState = 1;
 void setup() {
+  Serial.begin(115200);
+  Serial.println("Starting...");
+
   matrix.begin(displaybuf, WIDTH, HEIGHT);
   matrix.clear();
-  Serial.begin(115200);
-  Serial.println("");
 
   //init WiFi
+  WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, pass);
-  while (true) {          
+  while (true) {
     if (millis() - lastWiFiCheck > 300) {
       if (WiFi.status() == WL_CONNECTED)
         break;
@@ -423,7 +430,7 @@ void setup() {
         loadingState = 1;
       else
         loadingState = 0;
-        
+
       lastWiFiCheck = millis();
     }
     matrix.scan();
@@ -432,10 +439,6 @@ void setup() {
   matrix.clear();
 
   Serial.println("WiFi connected");
-
-  if (mdns.begin("esp8266", WiFi.localIP())) {
-    Serial.println("MDNS responder started");
-  }
 
   server.on("/temperature", []() {
     refreshAmbients();
@@ -494,51 +497,49 @@ void setup() {
     }
     server.send(200, "text/html", message);
   });
-  server.on("/clock", []() {
+  server.on("/clock24", []() {
     text = "";
-    server.send(200, "text/html", "showing clock");
+    decimalClock = false;
+    server.send(200, "text/html", "showing 24-hour clock");
+  });
+  server.on("/clock10", []() {
+    text = "";
+    decimalClock = true;
+    server.send(200, "text/html", "showing decimal clock");
   });
   server.begin();
 
   udp.begin(localPort);
 
-  //rtc.halt(false);
-  //rtc.writeProtect(false);
-
-  //rtc.setDate(18, 4, 2017);
-  //rtc.setTime(20, 41, 20);
-
   setTime(0, 0, 0, 1, 1, 2000);
 
   syncTime();
-  
+
   refreshAmbients(); //refresh ambients
 }
 
 void loop() {
-    if (enabled) {
-      if (text == "") {
-        if (millis() - lastSync > timeSyncInterval) {
-          syncTime();
-        }
+  if (enabled) {
+    if (text == "") {
+      if (millis() - lastSync > timeSyncInterval)
+        syncTime();
 
-        if (millis() - lastMatrixRefresh > 30) {
-          refresh();
-        }
+      if (millis() - lastMatrixRefresh > 30)
+        refresh();
 
-        if (millis() - lastAmbientRefresh > 30000) {
-          refreshAmbients();
-        }
-      }
-      else {
-        drawText();
-      }
-
-      matrix.scan();
-      delay(1);
+      if (millis() - lastAmbientRefresh > 30000)
+        refreshAmbients();
     }
     else {
-      delay(1000);
+      drawText();
     }
-    server.handleClient();
+
+    matrix.scan();
+    delay(1);
+  }
+  else {
+    delay(1000);
+  }
+  server.handleClient();
 }
+
