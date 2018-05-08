@@ -21,12 +21,21 @@
 
 ///////SETUP
 
-//WiFi and NTP sync
-char ssid[] = "YOUR_SSID";       //  your network SSID (name)
-char pass[] = "YOUR_PASSWORD";   // your network password
+//Refresh intervals in milliseconds
+#define MATRIX_REFRESH_INTERVAL     20
+#define AMBIENTS_REFRESH_INTERVAL   30000   //30s
+#define NTP_SYNC_INTERVAL           3600000 //1 hour
+
+//WiFi
+char ssid[] = "YOUR_SSID";       //your network SSID (name)
+char pass[] = "YOUR_PASSWORD";   //your network password
 
 //NTP server
 const char* ntpServerName = "0.de.pool.ntp.org";
+
+//Additional time settings
+TimeChangeRule myDST = {"CEST", Last, Sun, Mar, 2, 120};    //Daylight time = UTC + 2 hours
+TimeChangeRule mySTD = {"CET", Last, Sun, Oct, 2, 60};      //Standard time = UTC + 1 hours
 
 //DHT ambients sensor at pin 3
 DHTNEW dht(3);
@@ -271,8 +280,6 @@ void syncTime() {
     unsigned long secsSince1900 = highWord << 16 | lowWord;
     unsigned long epoch = secsSince1900 - 2208988800UL;
 
-    TimeChangeRule myDST = {"CEST", Last, Sun, Mar, 2, 120};    //Daylight time = UTC + 2 hours
-    TimeChangeRule mySTD = {"CET", Last, Sun, Oct, 2, 60};      //Standard time = UTC + 1 hours
     Timezone myTZ(myDST, mySTD);
 
     time_t localTime = myTZ.toLocal(epoch + 2);
@@ -280,7 +287,7 @@ void syncTime() {
     setTime(hour(localTime), minute(localTime), second(localTime), day(localTime), month(localTime), year(localTime));
     startmillisoffset = getMillisPart(millis());
     refresh();
-    timeSyncInterval = 3600000 * 4;
+    timeSyncInterval = NTP_SYNC_INTERVAL;
     lastSync = millis();
     Serial.println("Time synced");
   }
@@ -524,10 +531,10 @@ void loop() {
       if (millis() - lastSync > timeSyncInterval)
         syncTime();
 
-      if (millis() - lastMatrixRefresh > 30)
+      if (millis() - lastMatrixRefresh > MATRIX_REFRESH_INTERVAL)
         refresh();
 
-      if (millis() - lastAmbientRefresh > 30000)
+      if (millis() - lastAmbientRefresh > AMBIENTS_REFRESH_INTERVAL)
         refreshAmbients();
     }
     else {
