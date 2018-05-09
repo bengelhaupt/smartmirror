@@ -47,6 +47,12 @@ DHTNEW dht(3);
 //LEDMatrix(a, b, c, d, oe, r1, lat, clk);
 LEDMatrix matrix(12, 14, 2, 0, 13, 5, 4, 16);
 
+//Default values
+#define DEFAULT_CLOCK_TYPE_DECIMAL  true    //whether to show the decimal clock at start
+#define DEFAULT_TEXT_STYLE          0       //marquee=0|center=1|leftbound=2|rightbound=3
+#define DEFAULT_MARQUEE_SPEED       1000    //delay in milliseconds between shifts
+#define DEFAULT_MARQUEE_DIRECTION   false   //right=true|left=false
+
 ///////
 
 //Display Buffer 128 = 64 * 16 / 8
@@ -193,11 +199,11 @@ const uint8_t symbols[] = {
 };
 
 boolean enabled = true;
-boolean decimalClock = true; //whether to show the decimal clock at start
+boolean decimalClock = DEFAULT_CLOCK_TYPE_DECIMAL;
 String text = "";
-uint8_t textStyle = 0; //marquee=0|center=1|leftbound=2|rightbound=3
-int marqueeSpeed = 1000;
-boolean marqueeDirection = false; //right=true|left=false
+uint8_t textStyle = DEFAULT_TEXT_STYLE;
+int marqueeSpeed = DEFAULT_MARQUEE_SPEED;
+boolean marqueeDirection = DEFAULT_MARQUEE_DIRECTION;
 
 ESP8266WebServer server(80);
 
@@ -447,6 +453,9 @@ void setup() {
 
   Serial.println("WiFi connected");
 
+  server.on("", []() {
+    server.send(200, "text/html", "See request syntax on <a href=\"http://bensoft.de/projects/smartmirror/\">http://bensoft.de/projects/smartmirror/</a>");
+  });
   server.on("/temperature", []() {
     refreshAmbients();
     server.send(200, "text/html", (String)lastTemperatureValue);
@@ -480,12 +489,18 @@ void setup() {
             String marqSpeed = server.arg("speed");
             if (marqSpeed != "")
               marqueeSpeed = atoi(marqSpeed.c_str());
+            else
+              marqueeSpeed = DEFAULT_MARQUEE_SPEED;
+              
             String marqDir = server.arg("direction");
             if (marqDir != "") {
               if (marqDir == "right")
                 marqueeDirection = true;
               if (marqDir == "left")
                 marqueeDirection = false;
+            }
+            else {
+              marqueeDirection = DEFAULT_MARQUEE_DIRECTION;
             }
             textStyle = 0;
             marqueeCount = 0;
@@ -500,6 +515,9 @@ void setup() {
         else {
           message += " (style argument has invalid value)";
         }
+      }
+      else {
+        textStyle = DEFAULT_TEXT_STYLE;
       }
     }
     server.send(200, "text/html", message);
