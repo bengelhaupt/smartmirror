@@ -4,10 +4,10 @@
    A decimal clock on a 64x16 LED Matrix and a DHT11 temperature and humidity sensor.
    Applicable for ESP8266 boards (like NodeMCU). The current time is gathered via NTP.
 
-   A project by Ben-Noah Engelhaupt (code@bensoft.de) Github: bensoftde
+   A project by Ben-Noah Engelhaupt (code@bengelhaupt.com) Github: bengelhaupt
    Published under GNU General Public License v3.0
 
-   http://bensoft.de/projects/smartmirror
+   http://bengelhaupt.com/projects/smartmirror
 
 */
 
@@ -491,7 +491,7 @@ void setup() {
               marqueeSpeed = atoi(marqSpeed.c_str());
             else
               marqueeSpeed = DEFAULT_MARQUEE_SPEED;
-              
+
             String marqDir = server.arg("direction");
             if (marqDir != "") {
               if (marqDir == "right")
@@ -567,4 +567,3 @@ void loop() {
   }
   server.handleClient();
 }
-

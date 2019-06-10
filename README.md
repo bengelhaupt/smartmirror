@@ -1,4 +1,3 @@
-<h5><a href="http://bensoft.de/projects/smartmirror">Visit my webpage! (images etc.)</a></h5>
 <h1>SmartMirror</h1>
 						<h2>Description</h2>
 						<p>
@@ -27,26 +26,7 @@
 														In case of marquee: direction=[ right | left ], default is left; speed=THE HIGHER, THE SLOWER<br></td></tr>
 							</table>
 						</p>
-						<h2>Parts list</h2>
+						<h2>Further information</h2>
 						<p>
-							<ul>
-								<li>
-									A mirror frame (thick) with glass
-								</li>
-								<li>
-									<a href="http://www.ebay.de/itm/33-33-EUR-pro-m-Sonnenschutz-Spiegel-Fensterfolie-UV-Sichtschutz-Gebaudefolie-/201609124889?var=&hash=item0">Translucent glass foil</a> (2€)
-								</li>
-								<li>
-									<a href="http://www.ebay.de/itm/NodeMCU-V3-ESP8266-ESP-12-E-Lua-CH340-WiFI-WLan-IoT-32-Bit-microUSB-Arduino-/162472635911?hash=item25d41fae07">NodeMCU chip</a> (5-6€)
-								</li>
-								<li>
-									<a href="http://www.ebay.de/itm/DHT11-Digital-Luftfeuchtigkeit-Temperatursensor-Modul-Arduino-Pi-Atmel-PIC-/222638469234?hash=item33d6497072">DHT11 sensor</a> (3€)
-								</li>
-								<li>
-									<a href="http://www.ebay.de/itm/191793765829">LED Matrix</a> (14€)
-								</li>
-								<li>
-									Several cables (jumper wires | USB cables, splitter, on/off-switch)
-								</li>
-							</ul>
+							More information can be found on the <a href="http://bengelhaupt.com/projects/smartmirror">project website</a>
 						</p>
