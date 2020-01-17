@@ -1,7 +1,7 @@
 /*
    SmartMirror
 
-   A decimal clock on a 64x16 LED Matrix and a DHT11 temperature and humidity sensor.
+   A decimal clock on a 64x16 LED Matrix and a DHT22 temperature and humidity sensor.
    Applicable for ESP8266 boards (like NodeMCU). The current time is gathered via NTP.
 
    A project by Ben-Noah Engelhaupt (code@bengelhaupt.com) Github: bengelhaupt
@@ -14,7 +14,7 @@
 #include <LEDMatrix.h>
 #include <Time.h>
 #include <Timezone.h>
-#include <dhtnew.h>
+#include <dht.h>
 #include <ESP8266WiFi.h>
 #include <WiFiUdp.h>
 #include <ESP8266WebServer.h>
@@ -22,9 +22,11 @@
 ///////SETUP
 
 //Refresh intervals in milliseconds
-#define MATRIX_REFRESH_INTERVAL     20
-#define AMBIENTS_REFRESH_INTERVAL   30000   //30s
-#define NTP_SYNC_INTERVAL           3600000 //1 hour
+#define MATRIX_REFRESH_INTERVAL           50
+#define AMBIENTS_REFRESH_INTERVAL         30000   //30s
+#define NTP_SYNC_INTERVAL                 3600000 //1 hour
+#define CLIENT_HANDLING_INTERVAL_ENABLED  100
+#define CLIENT_HANDLING_INTERVAL_DISABLED 1000
 
 //WiFi
 char ssid[] = "YOUR_SSID";       //your network SSID (name)
@@ -37,18 +39,19 @@ const char* ntpServerName = "0.de.pool.ntp.org";
 TimeChangeRule myDST = {"CEST", Last, Sun, Mar, 2, 120};    //Daylight time = UTC + 2 hours
 TimeChangeRule mySTD = {"CET", Last, Sun, Oct, 2, 60};      //Standard time = UTC + 1 hours
 
-//DHT ambients sensor at pin 3
-DHTNEW dht(3);
+//DHT ambients sensor at pin 13
+dht DHT;
+#define DHTPIN 13
 
 //Matrix size
 #define WIDTH   64
 #define HEIGHT  16
 
 //LEDMatrix(a, b, c, d, oe, r1, lat, clk);
-LEDMatrix matrix(12, 14, 2, 0, 13, 5, 4, 16);
+LEDMatrix matrix(15, 12, 14, 2, 0, 4, 5, 16);
 
 //Default values
-#define DEFAULT_CLOCK_TYPE_DECIMAL  true    //whether to show the decimal clock at start
+#define DEFAULT_CLOCK_TYPE_DECIMAL  false    //whether to show the decimal clock at start
 #define DEFAULT_TEXT_STYLE          0       //marquee=0|center=1|leftbound=2|rightbound=3
 #define DEFAULT_MARQUEE_SPEED       1000    //delay in milliseconds between shifts
 #define DEFAULT_MARQUEE_DIRECTION   false   //right=true|left=false
@@ -250,20 +253,26 @@ void drawTimeDecimal(uint8_t hour, uint8_t minute, uint8_t second) {
   drawSymbol(37, 0, second % 10);
 }
 
-void drawTime(uint8_t hour, uint8_t minute) {
-  if (hour > 23 || minute > 59)
+void drawTime(uint8_t hour, uint8_t minute, uint8_t second) {
+  if (hour > 23 || minute > 59 || second > 59)
     return;
 
   matrix.clear();
 
-  drawSymbol(6, 0, hour / 10);
-  drawSymbol(14, 0, hour % 10);
+  drawSymbol(0, 0, hour / 10);
+  drawSymbol(7, 0, hour % 10);
 
-  matrix.drawPoint(23, 5, 1);
-  matrix.drawPoint(23, 11, 1);
+  matrix.drawPoint(15, 5, 1);
+  matrix.drawPoint(15, 11, 1);
 
-  drawSymbol(26, 0, minute / 10);
-  drawSymbol(34, 0, minute % 10);
+  drawSymbol(17, 0, minute / 10);
+  drawSymbol(24, 0, minute % 10);
+
+  matrix.drawPoint(32, 5, 1);
+  matrix.drawPoint(32, 11, 1);
+
+  drawSymbol(34, 0, second / 10);
+  drawSymbol(41, 0, second % 10);
 }
 
 uint16_t startmillisoffset = 0;
@@ -320,25 +329,21 @@ uint16_t getMillisPart(long millis) {
 }
 
 //AMBIENTS
-uint8_t lastTemperatureValue = 0;
-uint8_t lastHumidityValue = 0;
+int lastTemperatureValue = 0;
+int lastHumidityValue = 0;
 long lastAmbientRefresh = millis();
 
 void refreshAmbients() {
-  if (dht.read() == DHTLIB_OK) {
-    lastTemperatureValue = dht.temperature;
-    lastHumidityValue = dht.humidity;
-
-    Serial.println("Ambients refreshed");
-
-    lastAmbientRefresh = millis();
+  if (DHT.read22(DHTPIN) == DHTLIB_OK) {
+    lastHumidityValue = round(DHT.humidity);
+    lastTemperatureValue = round(DHT.temperature);
   }
-  else {
-    refreshAmbients();
-  }
+
+  Serial.println("Ambients refreshed");
+  lastAmbientRefresh = millis();
 }
 
-void drawAmbients() {
+void drawAmbientsDecimal() {
   //draw temperature
   if (lastTemperatureValue > 9)
     drawSymbol(47, 0, lastTemperatureValue / 10 + 10);
@@ -350,6 +355,20 @@ void drawAmbients() {
     drawSymbol(47, 8, lastHumidityValue / 10 + 10);
   drawSymbol(52, 8, lastHumidityValue % 10 + 10);
   drawSymbol(57, 8, 21);
+}
+
+void drawAmbients() {
+  //draw temperature
+  if (lastTemperatureValue > 9)
+    drawSymbol(49, 0, lastTemperatureValue / 10 + 10);
+  drawSymbol(53, 0, lastTemperatureValue % 10 + 10);
+  drawSymbol(58, 0, 20);
+
+  //draw humidity
+  if (lastHumidityValue > 9)
+    drawSymbol(49, 8, lastHumidityValue / 10 + 10);
+  drawSymbol(53, 8, lastHumidityValue % 10 + 10);
+  drawSymbol(58, 8, 21);
 }
 
 long lastMarquee = millis();
@@ -411,13 +430,20 @@ void refresh() {
     uint8_t m = 100.0 * (t - h);
     uint8_t s = 100.0 * ((t - h) * 100.0 - m);
     drawTimeDecimal(h, m, s);
+    drawAmbientsDecimal();
   }
   else {
-    drawTime(hour(n), minute(n));
+    drawTime(hour(n), minute(n), second(n));
+    drawAmbients();
   }
 
-  drawAmbients();
   lastMatrixRefresh = millis();
+}
+
+long lastServerClientHandling = millis();
+void serverHandleClient() {
+  server.handleClient();
+  lastServerClientHandling = millis();
 }
 
 //SETUP/LOOP
@@ -453,7 +479,7 @@ void setup() {
 
   Serial.println("WiFi connected");
 
-  server.on("", []() {
+  server.on("/", []() {
     server.send(200, "text/html", "See request syntax on <a href=\"http://bensoft.de/projects/smartmirror/\">http://bensoft.de/projects/smartmirror/</a>");
   });
   server.on("/temperature", []() {
@@ -544,15 +570,16 @@ void setup() {
 }
 
 void loop() {
+  long currentMillis = millis();
   if (enabled) {
     if (text == "") {
-      if (millis() - lastSync > timeSyncInterval)
+      if (currentMillis - lastSync > timeSyncInterval)
         syncTime();
 
-      if (millis() - lastMatrixRefresh > MATRIX_REFRESH_INTERVAL)
+      if (currentMillis - lastMatrixRefresh > MATRIX_REFRESH_INTERVAL)
         refresh();
 
-      if (millis() - lastAmbientRefresh > AMBIENTS_REFRESH_INTERVAL)
+      if (currentMillis - lastAmbientRefresh > AMBIENTS_REFRESH_INTERVAL)
         refreshAmbients();
     }
     else {
@@ -560,10 +587,12 @@ void loop() {
     }
 
     matrix.scan();
-    delay(1);
+
+    if (currentMillis - lastServerClientHandling > CLIENT_HANDLING_INTERVAL_ENABLED)
+      serverHandleClient();
   }
   else {
-    delay(1000);
+    if (currentMillis - lastServerClientHandling > CLIENT_HANDLING_INTERVAL_DISABLED)
+      serverHandleClient();
   }
-  server.handleClient();
 }
